@@ -14,20 +14,21 @@ HTML = r"""<!doctype html>
   <title>LexCheck IA | Auditor de Contratos</title>
   <style>
     :root {
-      --ink: #15212f;
-      --muted: #667085;
-      --line: #d9e0ea;
-      --panel: #ffffff;
-      --page: #f5f7fb;
-      --brand: #105c63;
-      --brand-2: #23a094;
-      --danger: #c43232;
-      --warning: #b7791f;
-      --ok: #1f7a4d;
-      --soft-danger: #fff1f0;
-      --soft-warning: #fff7e6;
-      --soft-ok: #eaf8f0;
-      --shadow: 0 18px 45px rgba(16, 24, 40, .10);
+      --ink: #18202a;
+      --muted: #697386;
+      --line: #d8d5df;
+      --panel: #fffefd;
+      --page: #f7f3f8;
+      --brand: #4b244a;
+      --brand-2: #0f766e;
+      --accent: #b58b2a;
+      --danger: #b42335;
+      --warning: #9a6618;
+      --ok: #207a56;
+      --soft-danger: #fff0f3;
+      --soft-warning: #fff8e8;
+      --soft-ok: #eaf8f1;
+      --shadow: 0 20px 48px rgba(45, 24, 54, .13);
     }
 
     * { box-sizing: border-box; }
@@ -38,8 +39,9 @@ HTML = r"""<!doctype html>
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--ink);
       background:
-        linear-gradient(135deg, rgba(16, 92, 99, .10), transparent 32%),
-        linear-gradient(315deg, rgba(35, 160, 148, .13), transparent 35%),
+        radial-gradient(circle at 18% 8%, rgba(181, 139, 42, .18), transparent 28%),
+        linear-gradient(135deg, rgba(75, 36, 74, .14), transparent 34%),
+        linear-gradient(315deg, rgba(15, 118, 110, .12), transparent 38%),
         var(--page);
     }
 
@@ -73,8 +75,8 @@ HTML = r"""<!doctype html>
       place-items: center;
       border-radius: 8px;
       color: white;
-      background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      box-shadow: 0 10px 25px rgba(16, 92, 99, .24);
+      background: linear-gradient(135deg, var(--brand), var(--accent));
+      box-shadow: 0 10px 25px rgba(75, 36, 74, .25);
     }
 
     .status-pill {
@@ -95,7 +97,7 @@ HTML = r"""<!doctype html>
       height: 9px;
       border-radius: 50%;
       background: var(--brand-2);
-      box-shadow: 0 0 0 5px rgba(35, 160, 148, .14);
+      box-shadow: 0 0 0 5px rgba(15, 118, 110, .14);
     }
 
     main {
@@ -145,7 +147,7 @@ HTML = r"""<!doctype html>
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 14px;
-      background: #fbfdff;
+      background: #fffdfa;
     }
 
     .benefit strong {
@@ -194,14 +196,14 @@ HTML = r"""<!doctype html>
       padding: 24px;
       border: 2px dashed #aebcca;
       border-radius: 8px;
-      background: #f8fbfd;
+      background: #fbf8fc;
       cursor: pointer;
       transition: .18s ease;
     }
 
     .dropzone:hover, .dropzone.dragging {
       border-color: var(--brand-2);
-      background: #effaf8;
+      background: #f2fbf8;
       transform: translateY(-1px);
     }
 
@@ -213,7 +215,7 @@ HTML = r"""<!doctype html>
       place-items: center;
       color: var(--brand);
       border-radius: 8px;
-      background: #e8f5f3;
+      background: #f0e9f1;
     }
 
     .dropzone b {
@@ -276,7 +278,7 @@ HTML = r"""<!doctype html>
 
     textarea:focus, input:focus, select:focus {
       border-color: var(--brand-2);
-      box-shadow: 0 0 0 4px rgba(35, 160, 148, .13);
+      box-shadow: 0 0 0 4px rgba(15, 118, 110, .13);
     }
 
     .actions {
@@ -305,18 +307,18 @@ HTML = r"""<!doctype html>
     .primary {
       color: white;
       background: var(--brand);
-      box-shadow: 0 12px 24px rgba(16, 92, 99, .24);
+      box-shadow: 0 12px 24px rgba(75, 36, 74, .24);
     }
 
-    .primary:hover { background: #0b4a51; }
+    .primary:hover { background: #371936; }
 
     .secondary {
       color: var(--brand);
-      background: #eaf6f4;
-      border: 1px solid #cae8e4;
+      background: #f4eef6;
+      border: 1px solid #e3d6e7;
     }
 
-    .secondary:hover { background: #ddf1ee; }
+    .secondary:hover { background: #eadfec; }
 
     .dashboard {
       display: grid;
@@ -533,7 +535,7 @@ HTML = r"""<!doctype html>
       padding: 15px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #fbfdff;
+      background: #fffdfa;
     }
 
     .lawyer-card h3 {
@@ -564,10 +566,90 @@ HTML = r"""<!doctype html>
     .lawyer-meta span {
       padding: 6px 9px;
       border-radius: 999px;
-      background: #eef6f6;
+      background: #f4eef6;
       color: var(--brand);
       font-size: 12px;
       font-weight: 750;
+    }
+
+    .feedback-float {
+      width: min(420px, calc(100% - 28px));
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 30;
+      display: none;
+      padding: 18px;
+      border: 1px solid rgba(75, 36, 74, .18);
+      border-radius: 8px;
+      background: rgba(255, 254, 253, .96);
+      box-shadow: 0 24px 60px rgba(45, 24, 54, .24);
+      backdrop-filter: blur(14px);
+    }
+
+    .feedback-float.visible {
+      display: block;
+    }
+
+    .feedback-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .feedback-head h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .feedback-head p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.42;
+    }
+
+    .icon-button {
+      width: 34px;
+      min-height: 34px;
+      padding: 0;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: white;
+      box-shadow: none;
+    }
+
+    .feedback-field {
+      display: grid;
+      gap: 7px;
+      margin-top: 11px;
+    }
+
+    .feedback-field label {
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .feedback-field select,
+    .feedback-field textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 10px 11px;
+    }
+
+    .feedback-field textarea {
+      min-height: 82px;
+    }
+
+    .feedback-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 13px;
     }
 
     .empty {
@@ -610,7 +692,7 @@ HTML = r"""<!doctype html>
       </div>
       LexCheck IA
     </div>
-    <div class="status-pill"><span class="dot"></span> Auditor de contratos en modo demo</div>
+    <div class="status-pill"><span class="dot"></span> Lushiana Escobedo Castro y Alel Nadim Orbezo</div>
   </header>
 
   <main>
@@ -618,20 +700,20 @@ HTML = r"""<!doctype html>
       <div class="intro">
         <h1>Auditor inmediato de contratos antes de firmar.</h1>
         <p class="lead">
-          Sube un contrato o pega una clausula. LexCheck IA identifica riesgos frecuentes,
-          senala puntos criticos y propone una redaccion mas segura para revision profesional.
+          Sube un contrato o pega una cláusula. LexCheck IA identifica riesgos frecuentes,
+          señala puntos críticos y propone una redacción más segura para revisión profesional.
         </p>
         <div class="benefits">
-          <div class="benefit"><strong>Menos trabajo mecanico</strong><span>Detecta fechas, renovaciones, penalidades y datos sensibles sin revisar linea por linea.</span></div>
-          <div class="benefit"><strong>Riesgos visibles</strong><span>Clasifica alertas por nivel alto, medio o bajo para priorizar la negociacion.</span></div>
-          <div class="benefit"><strong>Control de vigencia</strong><span>Marca renovaciones automaticas y vencimientos para evitar obligaciones no deseadas.</span></div>
-          <div class="benefit"><strong>Contacto experto</strong><span>Al terminar la auditoria puedes solicitar ayuda de abogadas segun la materia detectada.</span></div>
+          <div class="benefit"><strong>Menos trabajo mecánico</strong><span>Detecta fechas, renovaciones, penalidades y datos sensibles sin revisar línea por línea.</span></div>
+          <div class="benefit"><strong>Riesgos visibles</strong><span>Clasifica alertas por nivel alto, medio o bajo para priorizar la negociación.</span></div>
+          <div class="benefit"><strong>Control de vigencia</strong><span>Marca renovaciones automáticas y vencimientos para evitar obligaciones no deseadas.</span></div>
+          <div class="benefit"><strong>Contacto experto</strong><span>Al terminar la auditoría puedes solicitar ayuda de abogadas según la materia detectada.</span></div>
         </div>
       </div>
 
       <aside class="upload-panel">
         <h2 class="panel-title">Analizar contrato</h2>
-        <p class="panel-copy">Puedes subir un archivo o pegar texto. Para PDF/Word esta demo revisa el nombre y genera una auditoria modelo; con texto pegado analiza el contenido.</p>
+        <p class="panel-copy">Puedes subir un archivo o pegar texto. Para PDF/Word esta demo revisa el nombre y genera una auditoría modelo; con texto pegado analiza el contenido.</p>
 
         <div class="input-section">
           <h3 class="field-title">1. Archivo</h3>
@@ -653,14 +735,14 @@ HTML = r"""<!doctype html>
 
         <div class="input-section">
           <h3 class="field-title">2. Texto del contrato</h3>
-          <p class="field-help">Pega el contrato completo o las clausulas que quieras revisar. Mientras mas texto ingreses, mas completa sera la auditoria.</p>
-          <textarea id="contractText" placeholder="Ejemplo: El contrato se renovara automaticamente por periodos iguales..."></textarea>
+          <p class="field-help">Pega el contrato completo o las cláusulas que quieras revisar. Mientras más texto ingreses, más completa será la auditoría.</p>
+          <textarea id="contractText" placeholder="Ejemplo: El contrato se renovará automáticamente por períodos iguales..."></textarea>
         </div>
 
         <div class="input-section">
           <h3 class="field-title">3. Objetivo</h3>
-          <p class="field-help">Explica que quieres lograr para revisar si el contrato realmente permite cumplir esa finalidad.</p>
-          <textarea class="purpose-textarea" id="purposeText" placeholder="Ejemplo: quiero alquilar un local por un ano sin renovacion automatica y con opcion de terminar si el propietario incumple."></textarea>
+          <p class="field-help">Explica qué quieres lograr para revisar si el contrato realmente permite cumplir esa finalidad.</p>
+          <textarea class="purpose-textarea" id="purposeText" placeholder="Ejemplo: quiero alquilar un local por un año sin renovación automática y con opción de terminar si el propietario incumple."></textarea>
         </div>
 
         <div class="actions">
@@ -672,7 +754,7 @@ HTML = r"""<!doctype html>
           </button>
           <button class="secondary" id="demoBtn">Cargar ejemplo</button>
         </div>
-        <p class="footer-note">Demo academica: no constituye asesoria legal. La revision final siempre debe hacerla una abogada o abogado.</p>
+        <p class="footer-note">Demo académica: no constituye asesoría legal. La revisión final siempre debe hacerla una abogada o abogado.</p>
       </aside>
     </section>
 
@@ -681,9 +763,9 @@ HTML = r"""<!doctype html>
         <div class="score">
           <div class="ring"><span id="scoreValue">--</span></div>
           <div>
-            <div class="risk-label">Indice de riesgo</div>
+            <div class="risk-label">Índice de riesgo</div>
             <h2 class="risk-title" id="riskTitle">Sin analizar</h2>
-            <p class="risk-copy" id="riskCopy">Carga un contrato para generar un diagnostico preliminar.</p>
+            <p class="risk-copy" id="riskCopy">Carga un contrato para generar un diagnóstico preliminar.</p>
           </div>
         </div>
         <div class="metrics">
@@ -696,7 +778,7 @@ HTML = r"""<!doctype html>
       <section class="clause-panel">
         <div class="toolbar">
           <div>
-            <h2 class="panel-title">Hallazgos de auditoria</h2>
+            <h2 class="panel-title">Hallazgos de auditoría</h2>
             <p class="panel-copy" style="margin:0">Riesgos detectados y sugerencias de mejora.</p>
           </div>
           <div class="tabs">
@@ -707,23 +789,23 @@ HTML = r"""<!doctype html>
           </div>
         </div>
         <div class="list" id="findings">
-          <div class="empty">Todavia no hay hallazgos. Ejecuta una auditoria para ver el informe.</div>
+          <div class="empty">Todavía no hay hallazgos. Ejecuta una auditoría para ver el informe.</div>
         </div>
       </section>
     </section>
 
     <section class="lawyer-panel" id="lawyerPanel">
       <h2 class="panel-title">Contacta a especialistas en derecho civil</h2>
-      <p class="panel-copy">Estas opciones permanecen disponibles para que puedas solicitar una revision profesional de contratos civiles o recibir orientacion sobre una posible controversia procesal civil.</p>
+      <p class="panel-copy">Estas opciones permanecen disponibles para que puedas solicitar una revisión profesional de contratos civiles o recibir orientación sobre una posible controversia procesal civil.</p>
 
       <div class="lawyer-list">
         <article class="lawyer-card">
           <h3>Dra. Camila Rojas</h3>
-          <p>Especialista en contratos civiles: compraventa, arrendamiento, prestacion de servicios, mutuo, obligaciones y revision antes de firma.</p>
+          <p>Especialista en contratos civiles: compraventa, arrendamiento, prestación de servicios, mutuo, obligaciones y revisión antes de firma.</p>
           <div class="lawyer-meta">
             <span>Contratos civiles</span>
-            <span>Revision preventiva</span>
-            <span>Atencion virtual</span>
+            <span>Revisión preventiva</span>
+            <span>Atención virtual</span>
           </div>
           <div class="lawyer-actions">
             <a class="contact-link primary" href="https://wa.me/51999999111?text=Hola%2C%20quiero%20una%20revision%20de%20un%20contrato%20civil." target="_blank" rel="noopener">WhatsApp</a>
@@ -733,11 +815,11 @@ HTML = r"""<!doctype html>
 
         <article class="lawyer-card">
           <h3>Dra. Valeria Medina</h3>
-          <p>Especialista en derecho civil patrimonial: obligaciones, penalidades, garantias, responsabilidad civil e indemnizaciones.</p>
+          <p>Especialista en derecho civil patrimonial: obligaciones, penalidades, garantías, responsabilidad civil e indemnizaciones.</p>
           <div class="lawyer-meta">
             <span>Derecho civil patrimonial</span>
             <span>Penalidades</span>
-            <span>Garantias</span>
+            <span>Garantías</span>
           </div>
           <div class="lawyer-actions">
             <a class="contact-link primary" href="https://wa.me/51999999222?text=Hola%2C%20necesito%20asesoria%20sobre%20obligaciones%20o%20penalidades%20en%20un%20contrato." target="_blank" rel="noopener">WhatsApp</a>
@@ -747,11 +829,11 @@ HTML = r"""<!doctype html>
 
         <article class="lawyer-card">
           <h3>Dra. Luciana Torres</h3>
-          <p>Especialista en procesal civil: controversias contractuales, conciliacion, competencia, jurisdiccion y estrategia ante incumplimientos.</p>
+          <p>Especialista en procesal civil: controversias contractuales, conciliación, competencia, jurisdicción y estrategia ante incumplimientos.</p>
           <div class="lawyer-meta">
             <span>Procesal civil</span>
             <span>Controversias</span>
-            <span>Conciliacion</span>
+            <span>Conciliación</span>
           </div>
           <div class="lawyer-actions">
             <a class="contact-link primary" href="https://wa.me/51999999333?text=Hola%2C%20quiero%20orientacion%20sobre%20una%20controversia%20contractual%20civil." target="_blank" rel="noopener">WhatsApp</a>
@@ -759,9 +841,39 @@ HTML = r"""<!doctype html>
           </div>
         </article>
       </div>
-      <p class="footer-note">Los nombres, correos y telefonos son datos de ejemplo. Puedes reemplazarlos por contactos reales cuando tengas la informacion definitiva.</p>
+      <p class="footer-note">Los nombres, correos y teléfonos son datos de ejemplo. Puedes reemplazarlos por contactos reales cuando tengas la información definitiva.</p>
     </section>
   </main>
+
+  <section class="feedback-float" id="feedbackFloat" aria-live="polite">
+    <div class="feedback-head">
+      <div>
+        <h2>Tu experiencia</h2>
+        <p>Cuéntanos qué tan útil fue la página y qué podríamos mejorar.</p>
+      </div>
+      <button class="icon-button" id="feedbackClose" type="button" aria-label="Cerrar formulario de satisfacción">×</button>
+    </div>
+
+    <div class="feedback-field">
+      <label for="satisfactionLevel">Nivel de satisfacción</label>
+      <select id="satisfactionLevel">
+        <option value="Muy satisfecha/o">Muy satisfecha/o</option>
+        <option value="Satisfecha/o">Satisfecha/o</option>
+        <option value="Regular">Regular</option>
+        <option value="Poco satisfecha/o">Poco satisfecha/o</option>
+      </select>
+    </div>
+
+    <div class="feedback-field">
+      <label for="improvementText">Sugerencias de mejora</label>
+      <textarea id="improvementText" placeholder="Escribe qué te gustó, qué fue confuso o qué agregarías."></textarea>
+    </div>
+
+    <div class="feedback-actions">
+      <a class="contact-link primary" id="feedbackSend" href="mailto:lucianacastro1304.com?subject=Opinión%20sobre%20LexCheck%20IA">Enviar opinión</a>
+      <button class="secondary" id="feedbackLater" type="button">Después</button>
+    </div>
+  </section>
 
   <script>
     const fileInput = document.getElementById("fileInput");
@@ -773,48 +885,55 @@ HTML = r"""<!doctype html>
     const analyzeBtn = document.getElementById("analyzeBtn");
     const demoBtn = document.getElementById("demoBtn");
     const tabs = document.querySelectorAll(".tab");
+    const feedbackFloat = document.getElementById("feedbackFloat");
+    const feedbackClose = document.getElementById("feedbackClose");
+    const feedbackLater = document.getElementById("feedbackLater");
+    const feedbackSend = document.getElementById("feedbackSend");
+    const satisfactionLevel = document.getElementById("satisfactionLevel");
+    const improvementText = document.getElementById("improvementText");
 
     let lastFindings = [];
     let activeFilter = "all";
+    const feedbackEmail = "lucianacastro1304.com";
 
     const rules = [
       {
         level: "high",
-        title: "Renovacion automatica sin aviso suficiente",
+        title: "Renovación automática sin aviso suficiente",
         terms: ["renovacion automatica", "renovara automaticamente", "prorroga automatica"],
-        detail: "El contrato podria extenderse sin una confirmacion expresa, generando obligaciones futuras no deseadas.",
-        suggestion: "Agregar aviso previo minimo de 30 a 60 dias y exigir aceptacion escrita para renovar.",
+        detail: "El contrato podría extenderse sin una confirmación expresa, generando obligaciones futuras no deseadas.",
+        suggestion: "Agregar aviso previo mínimo de 30 a 60 días y exigir aceptación escrita para renovar.",
         area: "Contratos civiles"
       },
       {
         level: "high",
         title: "Penalidad desproporcionada",
         terms: ["penalidad", "multa", "clausula penal", "sancion"],
-        detail: "La sancion economica puede ser excesiva si no se vincula al dano real o a un limite razonable.",
-        suggestion: "Limitar la penalidad a un porcentaje definido del valor del contrato y permitir prueba del dano.",
+        detail: "La sanción económica puede ser excesiva si no se vincula al daño real o a un límite razonable.",
+        suggestion: "Limitar la penalidad a un porcentaje definido del valor del contrato y permitir prueba del daño.",
         area: "Contratos civiles"
       },
       {
         level: "high",
         title: "Tratamiento de datos personales insuficiente",
         terms: ["datos personales", "proteccion de datos", "habeas data", "confidencialidad de datos"],
-        detail: "Falta revisar base legal, finalidad, autorizacion, medidas de seguridad y responsables del tratamiento.",
-        suggestion: "Incluir autorizacion, finalidad especifica, encargado/responsable y procedimiento para derechos del titular.",
+        detail: "Falta revisar base legal, finalidad, autorización, medidas de seguridad y responsables del tratamiento.",
+        suggestion: "Incluir autorización, finalidad específica, encargado/responsable y procedimiento para derechos del titular.",
         area: "Contratos civiles"
       },
       {
         level: "medium",
-        title: "Terminacion unilateral amplia",
+        title: "Terminación unilateral amplia",
         terms: ["terminar unilateralmente", "terminacion unilateral", "sin justa causa"],
-        detail: "Una parte podria finalizar el contrato sin equilibrar preavisos, pagos pendientes o compensaciones.",
-        suggestion: "Definir causales, preaviso, liquidacion de obligaciones y efectos posteriores a la terminacion.",
+        detail: "Una parte podría finalizar el contrato sin equilibrar preavisos, pagos pendientes o compensaciones.",
+        suggestion: "Definir causales, preaviso, liquidación de obligaciones y efectos posteriores a la terminación.",
         area: "Contratos civiles"
       },
       {
         level: "medium",
-        title: "Jurisdiccion o ley aplicable poco clara",
+        title: "Jurisdicción o ley aplicable poco clara",
         terms: ["jurisdiccion", "ley aplicable", "tribunales", "arbitraje"],
-        detail: "La falta de foro o mecanismo de solucion de controversias puede aumentar costos y demoras.",
+        detail: "La falta de foro o mecanismo de solución de controversias puede aumentar costos y demoras.",
         suggestion: "Precisar ciudad, autoridad competente, ley aplicable y etapa previa de arreglo directo.",
         area: "Procesal civil"
       },
@@ -822,24 +941,24 @@ HTML = r"""<!doctype html>
         level: "medium",
         title: "Obligaciones de confidencialidad incompletas",
         terms: ["confidencial", "confidencialidad", "secreto"],
-        detail: "La clausula debe indicar duracion, excepciones, personas autorizadas y consecuencias por incumplimiento.",
-        suggestion: "Agregar alcance, exclusiones, plazo posterior al contrato y deber de devolucion o destruccion de informacion.",
+        detail: "La cláusula debe indicar duración, excepciones, personas autorizadas y consecuencias por incumplimiento.",
+        suggestion: "Agregar alcance, exclusiones, plazo posterior al contrato y deber de devolución o destrucción de información.",
         area: "Contratos civiles"
       },
       {
         level: "low",
         title: "Fechas o plazos requieren validacion",
         terms: ["fecha", "plazo", "vigencia", "vencimiento"],
-        detail: "Conviene confirmar que fechas, vigencia y entregables coincidan con la negociacion real.",
+        detail: "Conviene confirmar que fechas, vigencia y entregables coincidan con la negociación real.",
         suggestion: "Crear una matriz de fechas criticas con vencimiento, aviso previo y responsable interno.",
         area: "Contratos civiles"
       },
       {
         level: "low",
-        title: "Redaccion general ambigua",
+        title: "Redacción general ambigua",
         terms: ["a criterio", "razonable", "cuando corresponda", "entre otros"],
-        detail: "Expresiones abiertas pueden permitir interpretaciones distintas durante la ejecucion.",
-        suggestion: "Reemplazar formulas abiertas por criterios medibles, plazos concretos y responsables identificados.",
+        detail: "Expresiones abiertas pueden permitir interpretaciones distintas durante la ejecución.",
+        suggestion: "Reemplazar fórmulas abiertas por criterios medibles, plazos concretos y responsables identificados.",
         area: "Derecho civil patrimonial"
       }
     ];
@@ -849,52 +968,52 @@ HTML = r"""<!doctype html>
         intentTerms: ["alquilar", "arrendar", "arrendamiento", "local", "vivienda", "inmueble"],
         requiredTerms: ["arrendamiento", "arrendador", "arrendatario", "renta", "merced conductiva", "inmueble", "plazo"],
         title: "Finalidad de arrendamiento no completamente cubierta",
-        detail: "La finalidad indicada parece relacionada con un arrendamiento. Conviene que el contrato identifique bien el inmueble, renta, plazo, obligaciones de uso, devolucion y causales de resolucion.",
-        suggestion: "Verificar que el contrato incluya descripcion del bien, monto y forma de pago, plazo, garantia, estado de entrega y reglas de terminacion.",
+        detail: "La finalidad indicada parece relacionada con un arrendamiento. Conviene que el contrato identifique bien el inmueble, renta, plazo, obligaciones de uso, devolución y causales de resolución.",
+        suggestion: "Verificar que el contrato incluya descripción del bien, monto y forma de pago, plazo, garantía, estado de entrega y reglas de terminación.",
         area: "Contratos civiles"
       },
       {
         intentTerms: ["comprar", "vender", "compraventa", "propiedad", "transferir"],
         requiredTerms: ["compraventa", "vendedor", "comprador", "precio", "bien", "transferencia", "entrega"],
-        title: "Finalidad de compraventa requiere clausulas esenciales",
+        title: "Finalidad de compraventa requiere cláusulas esenciales",
         detail: "La finalidad indicada parece vinculada a una compraventa. El contrato debe dejar claro el bien, precio, forma de pago, entrega, saneamiento y transferencia.",
-        suggestion: "Revisar que existan clausulas sobre identificacion del bien, precio total, cronograma de pago, entrega, saneamiento y consecuencias por incumplimiento.",
+        suggestion: "Revisar que existan cláusulas sobre identificación del bien, precio total, cronograma de pago, entrega, saneamiento y consecuencias por incumplimiento.",
         area: "Contratos civiles"
       },
       {
         intentTerms: ["servicio", "servicios", "contratar", "proveedor", "trabajo", "entregable"],
         requiredTerms: ["servicio", "prestacion", "entregable", "plazo", "pago", "obligaciones", "conformidad"],
-        title: "Finalidad de prestacion de servicios necesita mayor precision",
-        detail: "La finalidad indicada parece relacionada con servicios. El contrato debe definir con precision el servicio, entregables, pagos, plazos y criterios de conformidad.",
-        suggestion: "Agregar alcance del servicio, fechas de entrega, forma de aprobacion, pagos, penalidades razonables y causales de resolucion.",
+        title: "Finalidad de prestación de servicios necesita mayor precisión",
+        detail: "La finalidad indicada parece relacionada con servicios. El contrato debe definir con precisión el servicio, entregables, pagos, plazos y criterios de conformidad.",
+        suggestion: "Agregar alcance del servicio, fechas de entrega, forma de aprobación, pagos, penalidades razonables y causales de resolución.",
         area: "Contratos civiles"
       },
       {
         intentTerms: ["prestar dinero", "prestamo", "mutuo", "deuda", "devolver dinero"],
         requiredTerms: ["mutuo", "prestamo", "deudor", "acreedor", "monto", "interes", "cuotas", "vencimiento"],
-        title: "Finalidad de prestamo o mutuo requiere condiciones claras",
-        detail: "La finalidad indicada parece relacionada con un prestamo de dinero. Deben quedar claros monto, intereses, fecha de devolucion, cuotas y consecuencias por mora.",
-        suggestion: "Verificar monto, moneda, cronograma de pago, intereses, mora, garantias y mecanismo para exigir el cumplimiento.",
+        title: "Finalidad de préstamo o mutuo requiere condiciones claras",
+        detail: "La finalidad indicada parece relacionada con un préstamo de dinero. Deben quedar claros monto, intereses, fecha de devolución, cuotas y consecuencias por mora.",
+        suggestion: "Verificar monto, moneda, cronograma de pago, intereses, mora, garantías y mecanismo para exigir el cumplimiento.",
         area: "Derecho civil patrimonial"
       },
       {
         intentTerms: ["evitar juicio", "demandar", "incumplimiento", "conciliar", "controversia", "problema legal"],
         requiredTerms: ["conciliacion", "jurisdiccion", "competencia", "domicilio", "incumplimiento", "resolucion"],
         title: "Finalidad preventiva ante conflicto civil",
-        detail: "La finalidad indicada menciona un posible conflicto. Conviene que el contrato prevea comunicaciones, solucion de controversias, competencia y efectos del incumplimiento.",
-        suggestion: "Incluir domicilio contractual, forma de notificacion, etapa de conciliacion, competencia judicial y reglas para resolver el contrato.",
+        detail: "La finalidad indicada menciona un posible conflicto. Conviene que el contrato prevea comunicaciones, solución de controversias, competencia y efectos del incumplimiento.",
+        suggestion: "Incluir domicilio contractual, forma de notificación, etapa de conciliación, competencia judicial y reglas para resolver el contrato.",
         area: "Procesal civil"
       }
     ];
 
-    const demoText = `Contrato de prestacion de servicios con renovacion automatica por periodos iguales.
-La parte contratante podra terminar unilateralmente el acuerdo sin justa causa.
+    const demoText = `Contrato de prestación de servicios con renovación automática por períodos iguales.
+La parte contratante podrá terminar unilateralmente el acuerdo sin justa causa.
 Se pacta penalidad del 40% del valor total por cualquier incumplimiento.
-El proveedor tratara datos personales de clientes y empleados.
-La informacion confidencial debera mantenerse en secreto durante la vigencia del contrato.
-La jurisdiccion sera definida posteriormente por las partes.`;
+El proveedor tratará datos personales de clientes y empleados.
+La información confidencial deberá mantenerse en secreto durante la vigencia del contrato.
+La jurisdicción será definida posteriormente por las partes.`;
 
-    const demoPurpose = "Quiero contratar un servicio por un plazo definido, evitar renovacion automatica y poder terminar si la otra parte incumple.";
+    const demoPurpose = "Quiero contratar un servicio por un plazo definido, evitar renovación automática y poder terminar si la otra parte incumple.";
 
     fileInput.addEventListener("change", async () => {
       const file = fileInput.files[0];
@@ -946,6 +1065,11 @@ La jurisdiccion sera definida posteriormente por las partes.`;
       });
     });
 
+    feedbackClose.addEventListener("click", hideFeedback);
+    feedbackLater.addEventListener("click", hideFeedback);
+    satisfactionLevel.addEventListener("change", updateFeedbackEmail);
+    improvementText.addEventListener("input", updateFeedbackEmail);
+
     function analyze() {
       const text = normalize(contractText.value || "");
       const purpose = normalize(purposeText.value || "");
@@ -957,9 +1081,9 @@ La jurisdiccion sera definida posteriormente por las partes.`;
         lastFindings = [
           {
             level: "medium",
-            title: "No se encontro texto suficiente",
-            detail: "Para una auditoria mas precisa, pega clausulas del contrato o carga un archivo TXT.",
-            suggestion: "En una version productiva, el sistema extraeria texto de PDF y Word desde el servidor.",
+            title: "No se encontró texto suficiente",
+            detail: "Para una auditoría más precisa, pega cláusulas del contrato o carga un archivo TXT.",
+            suggestion: "En una versión productiva, el sistema extraería texto de PDF y Word desde el servidor.",
             area: "Derecho civil patrimonial"
           }
         ];
@@ -968,9 +1092,9 @@ La jurisdiccion sera definida posteriormente por las partes.`;
         lastFindings = combinedFindings.length ? combinedFindings : [
           {
             level: "low",
-            title: "Sin alertas criticas en la muestra",
+            title: "Sin alertas críticas en la muestra",
             detail: "No se detectaron patrones de riesgo frecuentes en el texto revisado.",
-            suggestion: "Completar la revision con obligaciones de pago, terminacion, datos personales, garantias y anexos.",
+            suggestion: "Completar la revisión con obligaciones de pago, terminación, datos personales, garantías y anexos.",
             area: "Contratos civiles"
           }
         ];
@@ -978,6 +1102,7 @@ La jurisdiccion sera definida posteriormente por las partes.`;
 
       updateScore();
       renderFindings();
+      showFeedback();
     }
 
     function analyzePurpose(contractValue, purposeValue) {
@@ -1003,7 +1128,7 @@ La jurisdiccion sera definida posteriormente por las partes.`;
         } else if (coverage < 0.65) {
           findings.push({
             level: "medium",
-            title: "La finalidad esta parcialmente cubierta",
+            title: "La finalidad está parcialmente cubierta",
             detail: `El contrato parece relacionarse con lo que quieres hacer, pero no cubre suficientes elementos clave para ${rule.title.toLowerCase()}.`,
             suggestion: rule.suggestion,
             area: rule.area
@@ -1012,7 +1137,7 @@ La jurisdiccion sera definida posteriormente por las partes.`;
           findings.push({
             level: "low",
             title: "Finalidad declarada aparentemente compatible",
-            detail: "El contrato contiene varios elementos relacionados con la finalidad que indicaste. Aun asi, conviene revisar que las clausulas sean suficientes y no contradigan tu objetivo.",
+            detail: "El contrato contiene varios elementos relacionados con la finalidad que indicaste. Aun así, conviene revisar que las cláusulas sean suficientes y no contradigan tu objetivo.",
             suggestion: "Confirmar con una especialista que el texto final permita cumplir tu finalidad concreta antes de firmar.",
             area: rule.area
           });
@@ -1022,9 +1147,9 @@ La jurisdiccion sera definida posteriormente por las partes.`;
       if (!matchedPurposeRules.length) {
         findings.push({
           level: "medium",
-          title: "Finalidad del contrato requiere revision manual",
-          detail: "La app no pudo asociar claramente tu objetivo con una categoria civil especifica. Puede tratarse de una finalidad especial o estar redactada de forma muy abierta.",
-          suggestion: "Explica la finalidad con mas detalle: que quieres recibir, que obligacion asumira la otra parte, plazo, pago, riesgos y que pasaria si alguien incumple.",
+          title: "Finalidad del contrato requiere revisión manual",
+          detail: "La app no pudo asociar claramente tu objetivo con una categoría civil específica. Puede tratarse de una finalidad especial o estar redactada de forma muy abierta.",
+          suggestion: "Explica la finalidad con más detalle: qué quieres recibir, qué obligación asumirá la otra parte, plazo, pago, riesgos y qué pasaría si alguien incumple.",
           area: "Contratos civiles"
         });
       }
@@ -1053,13 +1178,13 @@ La jurisdiccion sera definida posteriormente por las partes.`;
       const copy = document.getElementById("riskCopy");
       if (score >= 55) {
         title.textContent = "Riesgo alto";
-        copy.textContent = "Se recomienda revision legal prioritaria antes de firma o negociacion.";
+        copy.textContent = "Se recomienda revisión legal prioritaria antes de firma o negociación.";
       } else if (score >= 20) {
         title.textContent = "Riesgo medio";
-        copy.textContent = "Hay puntos que conviene ajustar para reducir ambiguedad y exposicion.";
+        copy.textContent = "Hay puntos que conviene ajustar para reducir ambigüedad y exposición.";
       } else {
         title.textContent = "Riesgo bajo";
-        copy.textContent = "No aparecen alertas graves en la muestra, pero falta revision profesional completa.";
+        copy.textContent = "No aparecen alertas graves en la muestra, pero falta revisión profesional completa.";
       }
     }
 
@@ -1083,6 +1208,31 @@ La jurisdiccion sera definida posteriormente por las partes.`;
           <div class="suggestion"><strong>Sugerencia:</strong> ${item.suggestion}</div>
         </article>
       `).join("");
+    }
+
+    function showFeedback() {
+      updateFeedbackEmail();
+      window.setTimeout(() => feedbackFloat.classList.add("visible"), 650);
+    }
+
+    function hideFeedback() {
+      feedbackFloat.classList.remove("visible");
+    }
+
+    function updateFeedbackEmail() {
+      const score = document.getElementById("scoreValue").textContent;
+      const riskTitle = document.getElementById("riskTitle").textContent;
+      const body = [
+        "Hola, quiero compartir mi opinión sobre LexCheck IA.",
+        "",
+        `Nivel de satisfacción: ${satisfactionLevel.value}`,
+        `Resultado obtenido: ${riskTitle} (${score})`,
+        "",
+        "Sugerencias:",
+        improvementText.value || "Sin comentario adicional."
+      ].join("\n");
+
+      feedbackSend.href = `mailto:${feedbackEmail}?subject=${encodeURIComponent("Opinión sobre LexCheck IA")}&body=${encodeURIComponent(body)}`;
     }
 
     function labelFor(level) {
