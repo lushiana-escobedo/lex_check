@@ -894,7 +894,7 @@ HTML = r"""<!doctype html>
 
     let lastFindings = [];
     let activeFilter = "all";
-    const feedbackEmail = "lucianacastro1304.com";
+    const feedbackEmail = "lucianacastro1304@gmail.com";
 
     const rules = [
       {
