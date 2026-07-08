@@ -1,0 +1,664 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from threading import Timer
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
+import cgi
+import hashlib
+import html
+import io
+import json
+import mimetypes
+import re
+import time
+import unicodedata
+import webbrowser
+import zipfile
+
+from pypdf import PdfReader
+
+
+PORT = 8000
+ROOT = Path(__file__).resolve().parent
+DATA_DIR = ROOT / "data"
+KB_PATH = DATA_DIR / "knowledge_base.json"
+SPIJ_PATH = DATA_DIR / "spij_sources.json"
+
+SOURCE_PDFS = [
+    Path(r"C:\Users\ALEL ORBEZO\Downloads\derecho de contratos\CódigoCivil.pdf"),
+    Path(r"C:\Users\ALEL ORBEZO\Downloads\derecho de contratos\código procesal civil.pdf"),
+    Path(r"C:\Users\ALEL ORBEZO\Downloads\derecho de contratos\ilovepdf_merged (15)_removed.pdf"),
+    Path(r"C:\Users\ALEL ORBEZO\Downloads\ilovepdf_merged (15)_removed.pdf"),
+]
+
+STOPWORDS = {
+    "a", "al", "ante", "bajo", "con", "contra", "de", "del", "desde", "durante",
+    "e", "el", "en", "entre", "es", "esa", "ese", "esta", "este", "la", "las",
+    "le", "lo", "los", "mas", "me", "mi", "no", "o", "para", "pero", "por",
+    "que", "se", "sin", "sobre", "su", "sus", "te", "tu", "un", "una", "y",
+    "como", "cuando", "donde", "cual", "cuales", "puede", "debe", "deben",
+}
+
+
+def normalize(value):
+    value = unicodedata.normalize("NFD", value.lower())
+    value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
+    return re.sub(r"[^a-z0-9ñ]+", " ", value)
+
+
+def tokens(value):
+    return [part for part in normalize(value).split() if len(part) > 2 and part not in STOPWORDS]
+
+
+def compact_text(value):
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def split_chunks(text, max_chars=1300):
+    text = compact_text(text)
+    if not text:
+        return []
+    sentences = re.split(r"(?<=[.;:])\s+", text)
+    chunks = []
+    current = ""
+    for sentence in sentences:
+        if len(current) + len(sentence) + 1 > max_chars and current:
+            chunks.append(current.strip())
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    if current:
+        chunks.append(current.strip())
+    return chunks
+
+
+def read_pdf_bytes(content):
+    reader = PdfReader(io.BytesIO(content))
+    pages = []
+    for index, page in enumerate(reader.pages, start=1):
+        try:
+            text = page.extract_text() or ""
+        except Exception:
+            text = ""
+        pages.append((index, text))
+    return pages
+
+
+def read_docx_bytes(content):
+    with zipfile.ZipFile(io.BytesIO(content)) as docx_zip:
+        xml = docx_zip.read("word/document.xml").decode("utf-8", errors="ignore")
+    xml = re.sub(r"</w:p>", "\n", xml)
+    xml = re.sub(r"<[^>]+>", "", xml)
+    return html.unescape(xml)
+
+
+def read_upload(filename, content):
+    name = filename.lower()
+    if name.endswith(".pdf"):
+        return "\n".join(text for _, text in read_pdf_bytes(content))
+    if name.endswith(".docx"):
+        return read_docx_bytes(content)
+    return content.decode("utf-8", errors="ignore")
+
+
+def source_label(path):
+    name = path.name
+    if "procesal" in normalize(name):
+        return "Código Procesal Civil"
+    if "civil" in normalize(name):
+        return "Código Civil"
+    return "Apuntes de derecho de contratos"
+
+
+def build_knowledge_base(force=False):
+    DATA_DIR.mkdir(exist_ok=True)
+    if KB_PATH.exists() and not force:
+        return load_json(KB_PATH, {"sources": [], "chunks": []})
+
+    chunks = []
+    sources = []
+    seen = set()
+    for path in SOURCE_PDFS:
+        if not path.exists() or str(path).lower() in seen:
+            continue
+        seen.add(str(path).lower())
+        label = source_label(path)
+        sources.append({"title": label, "path": str(path), "name": path.name})
+        try:
+            pages = read_pdf_bytes(path.read_bytes())
+        except Exception as exc:
+            chunks.append({
+                "source": label,
+                "page": "",
+                "text": f"No se pudo leer {path.name}: {exc}",
+                "kind": "error",
+            })
+            continue
+        for page_number, page_text in pages:
+            for part in split_chunks(page_text):
+                chunks.append({
+                    "source": label,
+                    "page": page_number,
+                    "text": part,
+                    "kind": "pdf",
+                })
+
+    data = {
+        "built_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "sources": sources,
+        "chunks": chunks,
+    }
+    KB_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return data
+
+
+def load_json(path, fallback):
+    if not path.exists():
+        return fallback
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return fallback
+
+
+def save_json(path, data):
+    DATA_DIR.mkdir(exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def search_sources(query, limit=6):
+    kb = build_knowledge_base()
+    spij = load_json(SPIJ_PATH, {"sources": []})
+    query_tokens = tokens(query)
+    if not query_tokens:
+        return []
+    query_set = set(query_tokens)
+    article_numbers = set(re.findall(r"\bart(?:iculo)?\.?\s*(\d{1,4})\b", normalize(query)))
+    scored = []
+
+    all_chunks = list(kb.get("chunks", []))
+    for source in spij.get("sources", []):
+        for part in split_chunks(source.get("text", ""), max_chars=1200):
+            all_chunks.append({
+                "source": source.get("title") or source.get("url", "SPIJ"),
+                "page": "SPIJ",
+                "text": part,
+                "kind": "spij",
+                "url": source.get("url", ""),
+            })
+
+    for chunk in all_chunks:
+        text = chunk.get("text", "")
+        source_tokens = tokens(text)
+        if not source_tokens:
+            continue
+        source_set = set(source_tokens)
+        overlap = len(query_set & source_set)
+        phrase_bonus = sum(3 for term in query_tokens if term in normalize(text))
+        article_bonus = 0
+        if article_numbers:
+            for number in article_numbers:
+                if re.search(rf"\bart[íi]culo\s+{re.escape(number)}\b|\bart\.\s*{re.escape(number)}\b", text, re.I):
+                    article_bonus += 12
+        score = overlap * 4 + phrase_bonus + article_bonus
+        if score > 0:
+            scored.append((score, chunk))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [chunk for _, chunk in scored[:limit]]
+
+
+LEGAL_RULES = [
+    {
+        "level": "alto",
+        "title": "Renovación automática o prórroga",
+        "terms": ["renovacion automatica", "prorroga automatica", "renovara automaticamente"],
+        "guidance": "revisar aviso previo, aceptación expresa y plazo de salida",
+    },
+    {
+        "level": "alto",
+        "title": "Penalidad o cláusula penal",
+        "terms": ["penalidad", "clausula penal", "multa", "mora"],
+        "guidance": "verificar proporcionalidad, supuesto de incumplimiento y límite económico",
+    },
+    {
+        "level": "medio",
+        "title": "Resolución o terminación unilateral",
+        "terms": ["resolver el contrato", "terminacion unilateral", "sin expresion de causa", "sin causa"],
+        "guidance": "precisar causales, preaviso, liquidación y efectos posteriores",
+    },
+    {
+        "level": "medio",
+        "title": "Competencia, arbitraje o vía judicial",
+        "terms": ["competencia", "jurisdiccion", "arbitraje", "juez competente", "tribunales"],
+        "guidance": "identificar autoridad, domicilio contractual, conciliación previa y ley aplicable",
+    },
+    {
+        "level": "medio",
+        "title": "Obligaciones ambiguas",
+        "terms": ["a criterio", "cuando corresponda", "entre otros", "razonable"],
+        "guidance": "reemplazar fórmulas abiertas por plazos, responsables y criterios medibles",
+    },
+    {
+        "level": "bajo",
+        "title": "Fechas, pagos y anexos",
+        "terms": ["plazo", "fecha", "pago", "cuota", "anexo", "entrega"],
+        "guidance": "confirmar que fechas, montos, anexos y entregables coincidan con lo negociado",
+    },
+]
+
+
+def analyze_contract(contract_text, purpose):
+    text_norm = normalize(contract_text)
+    findings = []
+    for rule in LEGAL_RULES:
+        if any(term in text_norm for term in rule["terms"]):
+            citations = search_sources(f'{rule["title"]} {rule["guidance"]} {purpose} {contract_text[:1000]}', limit=3)
+            findings.append({
+                "level": rule["level"],
+                "title": rule["title"],
+                "detail": f"El texto contiene indicios de {rule['title'].lower()}. Conviene {rule['guidance']}.",
+                "citations": format_citations(citations),
+            })
+
+    if purpose.strip():
+        citations = search_sources(f"{purpose} {contract_text[:1200]}", limit=4)
+        findings.append({
+            "level": "referencial",
+            "title": "Compatibilidad con la finalidad indicada",
+            "detail": build_grounded_answer(purpose, citations),
+            "citations": format_citations(citations),
+        })
+
+    if not findings:
+        citations = search_sources(contract_text[:1500], limit=4)
+        findings.append({
+            "level": "referencial",
+            "title": "No se detectaron alertas automáticas claras",
+            "detail": "No encontré patrones críticos evidentes en el texto ingresado. Esto no reemplaza revisión legal: revisa objeto, partes, precio, plazo, incumplimiento, garantías y solución de controversias.",
+            "citations": format_citations(citations),
+        })
+    return findings
+
+
+def build_grounded_answer(question, citations):
+    if not citations:
+        return "No encontré respaldo suficiente en la base local para responder con seguridad. Agrega más texto del contrato, revisa que los PDFs fuente estén disponibles o actualiza fuentes desde SPIJ."
+    topics = []
+    joined = normalize(" ".join(item.get("text", "") for item in citations))
+    for label, words in [
+        ("objeto y obligaciones", ["obligacion", "prestacion", "objeto"]),
+        ("plazo y vencimiento", ["plazo", "vigencia", "vencimiento"]),
+        ("incumplimiento y resolución", ["incumplimiento", "resolucion", "penalidad"]),
+        ("competencia o proceso", ["competencia", "demanda", "proceso", "juez"]),
+        ("pago o contraprestación", ["pago", "precio", "renta", "cuota"]),
+    ]:
+        if any(word in joined for word in words):
+            topics.append(label)
+    if not topics:
+        topics = ["los elementos jurídicos relacionados con tu consulta"]
+    return "Con base en las fuentes encontradas, la revisión debe centrarse en " + ", ".join(topics[:4]) + ". Si la fuente no aparece citada abajo, la app no debe presentarla como respuesta segura."
+
+
+def format_citations(chunks):
+    citations = []
+    for chunk in chunks:
+        text = compact_text(chunk.get("text", ""))
+        if len(text) > 360:
+            text = text[:357].rstrip() + "..."
+        citations.append({
+            "source": chunk.get("source", "Fuente"),
+            "page": chunk.get("page", ""),
+            "text": text,
+            "url": chunk.get("url", ""),
+        })
+    return citations
+
+
+def answer_question(question):
+    citations = search_sources(question, limit=6)
+    answer = build_grounded_answer(question, citations)
+    return {"answer": answer, "citations": format_citations(citations)}
+
+
+def fetch_url_text(url):
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("Solo se aceptan enlaces http o https.")
+    req = Request(url, headers={"User-Agent": "LexCheck-SPJ-Study-App/1.0"})
+    with urlopen(req, timeout=18) as response:
+        raw = response.read(2_500_000)
+        content_type = response.headers.get("content-type", "")
+    if "pdf" in content_type or url.lower().endswith(".pdf"):
+        text = "\n".join(page_text for _, page_text in read_pdf_bytes(raw))
+    else:
+        text = raw.decode("utf-8", errors="ignore")
+        text = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", text, flags=re.I)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = html.unescape(text)
+    return compact_text(text)
+
+
+def update_spij_sources(urls):
+    store = load_json(SPIJ_PATH, {"sources": []})
+    by_url = {item["url"]: item for item in store.get("sources", [])}
+    results = []
+    for url in urls:
+        url = url.strip()
+        if not url:
+            continue
+        try:
+            text = fetch_url_text(url)
+            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            previous = by_url.get(url)
+            changed = previous is None or previous.get("hash") != digest
+            title = previous.get("title") if previous else ""
+            if not title:
+                title = "SPIJ - " + urlparse(url).netloc
+            by_url[url] = {
+                "url": url,
+                "title": title,
+                "hash": digest,
+                "text": text,
+                "last_checked": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            results.append({"url": url, "ok": True, "changed": changed, "chars": len(text)})
+        except Exception as exc:
+            results.append({"url": url, "ok": False, "error": str(exc)})
+    store["sources"] = list(by_url.values())
+    save_json(SPIJ_PATH, store)
+    return results
+
+
+HTML = r"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LexCheck IA | Contratos Perú</title>
+  <style>
+    :root {
+      --ink: #17202a; --muted: #647084; --line: #d9dee7; --panel: #fffefd;
+      --page: #f5f7f6; --brand: #243b53; --brand-2: #0f766e; --accent: #a06b19;
+      --danger: #b42335; --warning: #9a6618; --ok: #207a56;
+      --soft: #eef6f4; --shadow: 0 16px 38px rgba(34, 47, 62, .12);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif; color: var(--ink); background: var(--page); }
+    header { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px clamp(16px, 4vw, 50px); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.88); position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 850; font-size: 20px; }
+    .mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; color: white; background: linear-gradient(135deg, var(--brand), var(--brand-2)); }
+    .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--brand-2); box-shadow: 0 0 0 5px rgba(15,118,110,.13); }
+    main { width: min(1220px, calc(100% - 28px)); margin: 26px auto 48px; display: grid; gap: 18px; }
+    .top { display: grid; grid-template-columns: minmax(0, .9fr) minmax(360px, 1.1fr); gap: 18px; align-items: stretch; }
+    section, aside { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow); }
+    .intro { padding: clamp(22px, 4vw, 38px); }
+    h1 { margin: 0; font-size: clamp(31px, 4.6vw, 56px); line-height: 1; letter-spacing: 0; }
+    h2 { margin: 0 0 8px; font-size: 19px; }
+    h3 { margin: 0 0 6px; font-size: 15px; }
+    p { line-height: 1.5; }
+    .lead { color: var(--muted); font-size: 17px; margin: 18px 0 0; }
+    .source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+    .source { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfd; }
+    .source b { display: block; margin-bottom: 4px; }
+    .source span { color: var(--muted); font-size: 13px; }
+    .panel { padding: 20px; }
+    label { display: block; font-weight: 800; font-size: 13px; margin: 14px 0 7px; }
+    textarea, input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: inherit; color: var(--ink); background: white; }
+    textarea:focus, input:focus { outline: 0; border-color: var(--brand-2); box-shadow: 0 0 0 4px rgba(15,118,110,.13); }
+    textarea { min-height: 132px; resize: vertical; }
+    .short { min-height: 80px; }
+    .filebox { border: 2px dashed #a9b6c3; border-radius: 8px; padding: 18px; background: #f9fbfb; }
+    input[type=file] { padding: 10px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    button, .linkbtn { min-height: 42px; border: 0; border-radius: 8px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 800; cursor: pointer; text-decoration: none; }
+    .primary { color: white; background: var(--brand); }
+    .secondary { color: var(--brand); background: #edf3f5; border: 1px solid #d7e4e8; }
+    .ghost { color: var(--brand-2); background: #eef8f5; border: 1px solid #cfe8e0; }
+    .workspace { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 18px; }
+    .mini { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+    .result { display: grid; gap: 12px; }
+    .finding { border: 1px solid var(--line); border-left: 5px solid var(--brand-2); border-radius: 8px; padding: 14px; background: white; }
+    .finding.alto { border-left-color: var(--danger); background: #fff5f6; }
+    .finding.medio { border-left-color: var(--warning); background: #fff9ec; }
+    .finding.bajo { border-left-color: var(--ok); background: #effaf4; }
+    .tag { display: inline-block; margin-left: 8px; padding: 4px 7px; border-radius: 999px; background: white; border: 1px solid rgba(0,0,0,.08); font-size: 12px; }
+    .citation { margin-top: 10px; padding: 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); background: rgba(255,255,255,.72); color: #39475a; font-size: 13px; }
+    .citation b { color: var(--ink); }
+    .spij-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+    .step { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfd; min-height: 90px; }
+    .step strong { display: block; font-size: 13px; margin-bottom: 5px; }
+    .step span { color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .notice { padding: 12px; border-radius: 8px; background: var(--soft); color: #23524c; border: 1px solid #cce8e0; font-size: 13px; }
+    @media (max-width: 940px) { .top, .workspace, .source-grid, .spij-flow { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { header { align-items: flex-start; flex-direction: column; } button, .linkbtn { width: 100%; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="mark">§</div> LexCheck IA Perú</div>
+    <div class="status"><span class="dot"></span> Respuestas con fuentes, no inventadas</div>
+  </header>
+  <main>
+    <div class="top">
+      <section class="intro">
+        <h1>Auditor de contratos con respaldo jurídico.</h1>
+        <p class="lead">Analiza contratos usando tus apuntes, Código Civil, Código Procesal Civil y fuentes SPIJ que agregues. Cuando no hay respaldo suficiente, la app lo advierte.</p>
+        <div class="source-grid">
+          <div class="source"><b>Base local</b><span>PDFs de contratos y códigos civiles procesados por página.</span></div>
+          <div class="source"><b>Citas visibles</b><span>Cada alerta muestra de dónde salió el respaldo.</span></div>
+          <div class="source"><b>SPIJ</b><span>Guarda enlaces oficiales y detecta cambios por comparación.</span></div>
+          <div class="source"><b>Modo prudente</b><span>Evita afirmar si no encuentra fuente suficiente.</span></div>
+        </div>
+      </section>
+      <aside class="panel">
+        <h2>Analizar contrato</h2>
+        <div class="filebox">
+          <label for="contractFile">Archivo PDF, DOCX o TXT</label>
+          <input id="contractFile" type="file" accept=".pdf,.docx,.txt" />
+          <p class="mini" id="fileState">También puedes pegar el texto abajo.</p>
+        </div>
+        <label for="contractText">Texto del contrato</label>
+        <textarea id="contractText" placeholder="Pega aquí cláusulas o el contrato completo."></textarea>
+        <label for="purposeText">Qué quieres lograr o evitar</label>
+        <textarea id="purposeText" class="short" placeholder="Ejemplo: quiero arrendar un local sin renovación automática y con salida si hay incumplimiento."></textarea>
+        <div class="actions">
+          <button class="primary" id="analyzeBtn">Analizar</button>
+          <button class="secondary" id="demoBtn">Probar ejemplo</button>
+        </div>
+      </aside>
+    </div>
+
+    <div class="workspace">
+      <aside class="panel">
+        <h2>Consulta jurídica</h2>
+        <p class="mini">Pregunta sobre contratos, obligaciones, artículos o procedimiento civil. La respuesta usa solo la base cargada.</p>
+        <label for="questionText">Pregunta</label>
+        <textarea id="questionText" class="short" placeholder="Ejemplo: qué revisar en una cláusula penal en un contrato civil peruano?"></textarea>
+        <div class="actions"><button class="ghost" id="questionBtn">Responder con fuentes</button></div>
+        <hr />
+        <h2>Actualización SPIJ</h2>
+        <p class="mini">Pega enlaces de normas del SPIJ o PDFs oficiales, uno por línea. La app revisa cambios y guarda el texto para futuras respuestas.</p>
+        <label for="spijUrls">Enlaces SPIJ</label>
+        <textarea id="spijUrls" class="short" placeholder="https://spij.minjus.gob.pe/..."></textarea>
+        <div class="actions">
+          <button class="secondary" id="spijBtn">Revisar cambios</button>
+          <a class="linkbtn ghost" href="https://spij.minjus.gob.pe/" target="_blank" rel="noreferrer">Abrir SPIJ</a>
+        </div>
+      </aside>
+      <section class="panel">
+        <h2>Resultados</h2>
+        <div class="notice">Regla de seguridad: si una conclusión no aparece apoyada en una cita, trátala como orientación preliminar y no como respuesta definitiva.</div>
+        <div class="spij-flow">
+          <div class="step"><strong>1. Revisar SPIJ</strong><span>Consulta los enlaces oficiales que pegues.</span></div>
+          <div class="step"><strong>2. Detectar cambios</strong><span>Compara el texto nuevo con el guardado.</span></div>
+          <div class="step"><strong>3. Guardar texto</strong><span>Actualiza la base local si hubo cambios.</span></div>
+          <div class="step"><strong>4. Responder</strong><span>Usa fuentes locales y SPIJ en las citas.</span></div>
+        </div>
+        <div id="results" class="result" style="margin-top:16px;"></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const results = $("results");
+    const demoText = `Contrato de arrendamiento de local comercial. El contrato se renovará automáticamente por periodos iguales si ninguna parte comunica su decisión con 5 días de anticipación. El arrendatario pagará una penalidad equivalente al 40% de la renta anual por cualquier incumplimiento. Las partes se someten a la competencia de los jueces de Lima.`;
+    const demoPurpose = "Quiero arrendar un local sin quedar atado por renovación automática y con penalidad razonable.";
+
+    $("contractFile").addEventListener("change", () => {
+      const file = $("contractFile").files[0];
+      $("fileState").textContent = file ? `Archivo listo: ${file.name}` : "También puedes pegar el texto abajo.";
+    });
+    $("demoBtn").addEventListener("click", () => {
+      $("contractText").value = demoText;
+      $("purposeText").value = demoPurpose;
+      analyze();
+    });
+    $("analyzeBtn").addEventListener("click", analyze);
+    $("questionBtn").addEventListener("click", ask);
+    $("spijBtn").addEventListener("click", updateSpij);
+
+    async function analyze() {
+      const form = new FormData();
+      const file = $("contractFile").files[0];
+      if (file) form.append("file", file);
+      form.append("contractText", $("contractText").value);
+      form.append("purpose", $("purposeText").value);
+      showLoading("Analizando con fuentes locales...");
+      const data = await post("/api/analyze", form);
+      renderFindings(data.findings || []);
+    }
+
+    async function ask() {
+      const form = new FormData();
+      form.append("question", $("questionText").value);
+      showLoading("Buscando respaldo en la base...");
+      const data = await post("/api/question", form);
+      renderAnswer(data);
+    }
+
+    async function updateSpij() {
+      const form = new FormData();
+      form.append("urls", $("spijUrls").value);
+      showLoading("Revisando enlaces SPIJ...");
+      const data = await post("/api/update-spij", form);
+      renderSpij(data.results || []);
+    }
+
+    async function post(url, form) {
+      const response = await fetch(url, { method: "POST", body: form });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    }
+
+    function showLoading(text) {
+      results.innerHTML = `<div class="finding"><h3>${escapeHtml(text)}</h3><p>Un momento.</p></div>`;
+    }
+
+    function renderFindings(findings) {
+      results.innerHTML = findings.map(item => `
+        <article class="finding ${item.level}">
+          <h3>${escapeHtml(item.title)} <span class="tag">${escapeHtml(item.level)}</span></h3>
+          <p>${escapeHtml(item.detail)}</p>
+          ${renderCitations(item.citations || [])}
+        </article>
+      `).join("") || `<div class="finding"><h3>Sin resultados</h3><p>No se encontró texto suficiente para analizar.</p></div>`;
+    }
+
+    function renderAnswer(data) {
+      results.innerHTML = `
+        <article class="finding">
+          <h3>Respuesta con fuentes</h3>
+          <p>${escapeHtml(data.answer || "")}</p>
+          ${renderCitations(data.citations || [])}
+        </article>
+      `;
+    }
+
+    function renderSpij(items) {
+      results.innerHTML = items.map(item => `
+        <article class="finding ${item.ok ? "bajo" : "alto"}">
+          <h3>${item.ok ? (item.changed ? "Fuente actualizada" : "Sin cambios") : "No se pudo revisar"}</h3>
+          <p>${escapeHtml(item.url || "")}</p>
+          <p>${item.ok ? `Texto guardado: ${item.chars} caracteres.` : escapeHtml(item.error || "")}</p>
+        </article>
+      `).join("") || `<div class="finding"><h3>Agrega enlaces</h3><p>Pega uno o más enlaces del SPIJ para revisarlos.</p></div>`;
+    }
+
+    function renderCitations(citations) {
+      if (!citations.length) return `<div class="citation"><b>Fuente:</b> no se encontró cita suficiente.</div>`;
+      return citations.map(c => `
+        <div class="citation">
+          <b>${escapeHtml(c.source)}${c.page ? " - pág. " + escapeHtml(String(c.page)) : ""}</b>
+          ${c.url ? `<br><a href="${escapeHtml(c.url)}" target="_blank" rel="noreferrer">${escapeHtml(c.url)}</a>` : ""}
+          <br>${escapeHtml(c.text)}
+        </div>
+      `).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    }
+  </script>
+</body>
+</html>"""
+
+
+class LexCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path in {"/", "/index.html"}:
+            self.reply(200, HTML.encode("utf-8"), "text/html; charset=utf-8")
+            return
+        self.reply(404, b"No encontrado", "text/plain; charset=utf-8")
+
+    def do_POST(self):
+        try:
+            form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ={
+                "REQUEST_METHOD": "POST",
+                "CONTENT_TYPE": self.headers.get("Content-Type"),
+            })
+            if self.path == "/api/analyze":
+                contract_text = form.getfirst("contractText", "")
+                purpose = form.getfirst("purpose", "")
+                if "file" in form and getattr(form["file"], "filename", ""):
+                    file_item = form["file"]
+                    contract_text += "\n" + read_upload(file_item.filename, file_item.file.read())
+                findings = analyze_contract(contract_text, purpose) if compact_text(contract_text) else []
+                self.json({"findings": findings})
+                return
+            if self.path == "/api/question":
+                self.json(answer_question(form.getfirst("question", "")))
+                return
+            if self.path == "/api/update-spij":
+                urls = form.getfirst("urls", "").splitlines()
+                self.json({"results": update_spij_sources(urls)})
+                return
+            self.reply(404, b"No encontrado", "text/plain; charset=utf-8")
+        except Exception as exc:
+            self.reply(500, str(exc).encode("utf-8"), "text/plain; charset=utf-8")
+
+    def json(self, data):
+        self.reply(200, json.dumps(data, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
+
+    def reply(self, status, body, content_type):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *_):
+        return
+
+
+def open_browser():
+    webbrowser.open(f"http://localhost:{PORT}")
+
+
+if __name__ == "__main__":
+    build_knowledge_base()
+    server = HTTPServer(("localhost", PORT), LexCheckHandler)
+    print(f"LexCheck IA Perú listo en http://localhost:{PORT}")
+    Timer(1, open_browser).start()
+    server.serve_forever()
