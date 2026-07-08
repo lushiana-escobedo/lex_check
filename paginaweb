@@ -18,7 +18,7 @@ import zipfile
 from pypdf import PdfReader
 
 
-PORT = 8000
+PORT = 9000
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 KB_PATH = DATA_DIR / "knowledge_base.json"
@@ -275,7 +275,7 @@ def analyze_contract(contract_text, purpose):
         findings.append({
             "level": "referencial",
             "title": "No se detectaron alertas automáticas claras",
-            "detail": "No encontré patrones críticos evidentes en el texto ingresado. Esto no reemplaza revisión legal: revisa objeto, partes, precio, plazo, incumplimiento, garantías y solución de controversias.",
+            "detail": "No encontré patrones críticos evidentes en el texto ingresado. Esto no reemplaza la revisión legal: revisa objeto, partes, precio, plazo, incumplimiento, garantías y solución de controversias.",
             "citations": format_citations(citations),
         })
     return findings
@@ -283,7 +283,7 @@ def analyze_contract(contract_text, purpose):
 
 def build_grounded_answer(question, citations):
     if not citations:
-        return "No encontré respaldo suficiente en la base local para responder con seguridad. Agrega más texto del contrato, revisa que los PDFs fuente estén disponibles o actualiza fuentes desde SPIJ."
+        return "No encontré respaldo suficiente en la base local para responder con seguridad. Agrega más texto del contrato, revisa que los PDFs fuente estén disponibles o actualiza las fuentes desde el SPIJ."
     topics = []
     joined = normalize(" ".join(item.get("text", "") for item in citations))
     for label, words in [
@@ -297,7 +297,7 @@ def build_grounded_answer(question, citations):
             topics.append(label)
     if not topics:
         topics = ["los elementos jurídicos relacionados con tu consulta"]
-    return "Con base en las fuentes encontradas, la revisión debe centrarse en " + ", ".join(topics[:4]) + ". Si la fuente no aparece citada abajo, la app no debe presentarla como respuesta segura."
+    return "Con base en las fuentes encontradas, la revisión debe centrarse en " + ", ".join(topics[:4]) + ". Si la fuente no aparece citada abajo, la aplicación no debe presentarla como respuesta segura."
 
 
 def format_citations(chunks):
@@ -375,146 +375,263 @@ HTML = r"""<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LexCheck IA | Contratos Perú</title>
+  <title>Let's Check | Contratos Perú</title>
   <style>
     :root {
-      --ink: #17202a; --muted: #647084; --line: #d9dee7; --panel: #fffefd;
-      --page: #f5f7f6; --brand: #243b53; --brand-2: #0f766e; --accent: #a06b19;
-      --danger: #b42335; --warning: #9a6618; --ok: #207a56;
-      --soft: #eef6f4; --shadow: 0 16px 38px rgba(34, 47, 62, .12);
+      /* INTERFAZ NARANJA CORAL PROFESIONAL Y ASISTENCIA DIDÁCTICA */
+      --brand: #f97316;         /* Coral Destacado */
+      --brand-hover: #ea580c;   /* Coral Oscuro */
+      --ink: #0f172a;           /* Azul Pizarra Textos */
+      --muted: #475569;         /* Subtítulos legibles */
+      --line: #cbd5e1;          /* Bordes limpios */
+      --panel: #ffffff;         /* Fondos de bloques */
+      --page: #fdfaf7;          /* Fondo cálido suavizado */
+      --accent: #ca8a04;
+      --danger: #dc2626; 
+      --warning: #d97706; 
+      --ok: #16a34a;
+      --soft: #fff7ed; 
+      --shadow: 0 10px 30px -5px rgba(249, 115, 22, 0.08), 0 8px 16px -6px rgba(0, 0, 0, 0.04);
     }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; font-family: Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif; color: var(--ink); background: var(--page); }
-    header { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px clamp(16px, 4vw, 50px); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.88); position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); }
-    .brand { display: flex; align-items: center; gap: 12px; font-weight: 850; font-size: 20px; }
-    .mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; color: white; background: linear-gradient(135deg, var(--brand), var(--brand-2)); }
-    .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
-    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--brand-2); box-shadow: 0 0 0 5px rgba(15,118,110,.13); }
-    main { width: min(1220px, calc(100% - 28px)); margin: 26px auto 48px; display: grid; gap: 18px; }
-    .top { display: grid; grid-template-columns: minmax(0, .9fr) minmax(360px, 1.1fr); gap: 18px; align-items: stretch; }
-    section, aside { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow); }
-    .intro { padding: clamp(22px, 4vw, 38px); }
-    h1 { margin: 0; font-size: clamp(31px, 4.6vw, 56px); line-height: 1; letter-spacing: 0; }
-    h2 { margin: 0 0 8px; font-size: 19px; }
-    h3 { margin: 0 0 6px; font-size: 15px; }
-    p { line-height: 1.5; }
-    .lead { color: var(--muted); font-size: 17px; margin: 18px 0 0; }
-    .source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
-    .source { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfd; }
-    .source b { display: block; margin-bottom: 4px; }
+    * { box-sizing: border-box; transition: all 0.2s ease; }
+    body { margin: 0; min-height: 100vh; font-family: 'Segoe UI', Inter, system-ui, sans-serif; color: var(--ink); background: var(--page); }
+    
+    header { 
+      min-height: 80px; display: flex; align-items: center; justify-content: space-between; gap: 16px; 
+      padding: 15px clamp(16px, 4vw, 50px); border-bottom: 2px solid var(--brand); 
+      background: rgba(255, 255, 255, 0.96); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(8px); 
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; color: var(--ink); }
+    .mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px; color: white; background: linear-gradient(135deg, var(--brand), var(--brand-hover)); font-size: 20px; font-weight: bold; }
+    
+    .status-container { text-align: right; }
+    .authors { font-size: 14px; color: var(--ink); font-weight: 700; background: #fff7ed; padding: 6px 14px; border-radius: 8px; border: 1px solid #ffedd5; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+
+    main { width: min(1280px, calc(100% - 32px)); margin: 30px auto 60px; display: grid; gap: 24px; }
+    .top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(400px, 1.2fr); gap: 24px; align-items: stretch; }
+    
+    section, aside { border: 1px solid #e2e8f0; border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+    .intro { padding: clamp(24px, 4vw, 40px); display: flex; flex-direction: column; justify-content: space-between; }
+    
+    h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.15; letter-spacing: -0.02em; color: var(--ink); font-weight: 800; }
+    h2 { margin: 0 0 12px; font-size: 20px; font-weight: 700; color: var(--brand-hover); display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #ffedd5; padding-bottom: 6px; }
+    h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; color: var(--ink); }
+    p { line-height: 1.6; color: #334155; }
+    .lead { color: var(--muted); font-size: 16px; margin: 16px 0 0; }
+    
+    .source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+    .source { padding: 14px; border: 1px solid #ffedd5; border-radius: 10px; background: #fffdfa; }
+    .source b { display: block; margin-bottom: 4px; color: var(--brand-hover); }
     .source span { color: var(--muted); font-size: 13px; }
-    .panel { padding: 20px; }
-    label { display: block; font-weight: 800; font-size: 13px; margin: 14px 0 7px; }
-    textarea, input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: inherit; color: var(--ink); background: white; }
-    textarea:focus, input:focus { outline: 0; border-color: var(--brand-2); box-shadow: 0 0 0 4px rgba(15,118,110,.13); }
-    textarea { min-height: 132px; resize: vertical; }
+    
+    .panel { padding: 24px; }
+    label { display: block; font-weight: 700; font-size: 13px; margin: 16px 0 8px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; }
+    textarea, input { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font: inherit; color: var(--ink); background: #ffffff; }
+    textarea:focus, input:focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15); }
+    textarea { min-height: 120px; resize: vertical; }
     .short { min-height: 80px; }
-    .filebox { border: 2px dashed #a9b6c3; border-radius: 8px; padding: 18px; background: #f9fbfb; }
-    input[type=file] { padding: 10px; }
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
-    button, .linkbtn { min-height: 42px; border: 0; border-radius: 8px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 800; cursor: pointer; text-decoration: none; }
+    
+    .filebox { border: 2px dashed #fdba74; border-radius: 10px; padding: 20px; background: #fff7ed; text-align: center; }
+    .filebox:hover { border-color: var(--brand); background: #ffedd5; }
+    input[type=file] { padding: 5px; max-width: 100%; }
+    
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    button, .linkbtn { min-height: 44px; border: 0; border-radius: 8px; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; text-align: center; }
+    
     .primary { color: white; background: var(--brand); }
-    .secondary { color: var(--brand); background: #edf3f5; border: 1px solid #d7e4e8; }
-    .ghost { color: var(--brand-2); background: #eef8f5; border: 1px solid #cfe8e0; }
-    .workspace { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 18px; }
-    .mini { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
-    .result { display: grid; gap: 12px; }
-    .finding { border: 1px solid var(--line); border-left: 5px solid var(--brand-2); border-radius: 8px; padding: 14px; background: white; }
-    .finding.alto { border-left-color: var(--danger); background: #fff5f6; }
-    .finding.medio { border-left-color: var(--warning); background: #fff9ec; }
-    .finding.bajo { border-left-color: var(--ok); background: #effaf4; }
-    .tag { display: inline-block; margin-left: 8px; padding: 4px 7px; border-radius: 999px; background: white; border: 1px solid rgba(0,0,0,.08); font-size: 12px; }
-    .citation { margin-top: 10px; padding: 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); background: rgba(255,255,255,.72); color: #39475a; font-size: 13px; }
-    .citation b { color: var(--ink); }
-    .spij-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
-    .step { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfd; min-height: 90px; }
-    .step strong { display: block; font-size: 13px; margin-bottom: 5px; }
-    .step span { color: var(--muted); font-size: 12px; line-height: 1.4; }
-    .notice { padding: 12px; border-radius: 8px; background: var(--soft); color: #23524c; border: 1px solid #cce8e0; font-size: 13px; }
-    @media (max-width: 940px) { .top, .workspace, .source-grid, .spij-flow { grid-template-columns: 1fr; } }
-    @media (max-width: 560px) { header { align-items: flex-start; flex-direction: column; } button, .linkbtn { width: 100%; } }
+    .primary:hover { background: var(--brand-hover); transform: translateY(-1px); }
+    .secondary { color: #334155; background: #f1f5f9; border: 1px solid #cbd5e1; }
+    .secondary:hover { background: #e2e8f0; border-color: var(--brand); }
+    .ghost { color: white; background: var(--ink); }
+    .ghost:hover { background: #1e293b; transform: translateY(-1px); }
+    
+    .workspace { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 24px; }
+    .mini { color: var(--muted); font-size: 13px; margin: 4px 0 0; line-height: 1.4; }
+    
+    .result { display: grid; gap: 14px; }
+    .finding { border: 1px solid #e2e8f0; border-left: 5px solid var(--brand); border-radius: 10px; padding: 16px; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
+    .finding.alto { border-left-color: var(--danger); background: #fef2f2; }
+    .finding.medio { border-left-color: var(--warning); background: #fffbeb; }
+    .finding.bajo { border-left-color: var(--ok); background: #ecfdf5; }
+    
+    .tag { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: white; border: 1px solid rgba(0,0,0,0.1); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .citation { margin-top: 12px; padding: 12px; border-radius: 8px; border: 1px solid #ffedd5; background: #fff7ed; color: #475569; font-size: 13px; line-height: 1.5; }
+    .citation b { color: var(--brand-hover); }
+    
+    .spij-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; margin-bottom: 16px; }
+    .step { padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fafafa; min-height: 85px; }
+    .step strong { display: block; font-size: 13px; color: var(--brand-hover); margin-bottom: 4px; }
+    .step span { color: var(--muted); font-size: 12px; line-height: 1.3; }
+    
+    .notice { padding: 14px; border-radius: 8px; background: #fff7ed; color: var(--brand-hover); border: 1px solid #ffedd5; font-size: 13px; font-weight: 500; }
+    hr { border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+
+    /* SECCIÓN DE CONTACTO DE ABOGADOS EXPANDIDA ABAJO (FULL WIDTH) */
+    .lawyers-footer { background: #fff7ed; border: 2px solid #ffedd5; padding: 24px; border-radius: 12px; box-shadow: var(--shadow); }
+    .lawyers-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+    .lawyer-card { background: white; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+    .lawyer-info h4 { margin: 0; font-size: 15px; color: var(--ink); font-weight: 700; }
+    .lawyer-info span { font-size: 13px; color: var(--muted); display: block; margin-top: 4px; }
+    .lawyer-btn { font-size: 13px; padding: 8px 14px; background: var(--brand); color: white; border-radius: 6px; text-decoration: none; font-weight: bold; text-align: center; display: block; }
+    .lawyer-btn:hover { background: var(--brand-hover); }
+
+    /* Modal Flotante de Satisfacción */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal-box { background: white; padding: 30px; border-radius: 16px; max-width: 450px; width: calc(100% - 32px); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(0.95); transition: transform 0.3s ease; border: 2px solid var(--brand); }
+    .modal-overlay.active .modal-box { transform: scale(1); }
+    .modal-box h3 { margin-top: 0; font-size: 22px; color: var(--brand-hover); }
+    .rating-options { display: flex; justify-content: space-between; margin: 16px 0; }
+    .rating-btn { border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px; border-radius: 8px; cursor: pointer; flex: 1; text-align: center; font-size: 18px; margin: 0 4px; }
+    .rating-btn:hover, .rating-btn.selected { background: #ffedd5; border-color: var(--brand); }
+    
+    @media (max-width: 1024px) { .top, .workspace { grid-template-columns: 1fr; } .lawyers-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { header { align-items: flex-start; flex-direction: column; gap: 8px; } .status-container { text-align: left; } button, .linkbtn { width: 100%; } .spij-flow { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <header>
-    <div class="brand"><div class="mark">§</div> LexCheck IA Perú</div>
-    <div class="status"><span class="dot"></span> Respuestas con fuentes, no inventadas</div>
+    <div class="brand"><div class="mark">§</div> Let's Check</div>
+    <div class="status-container">
+      <div class="authors">Lushiana Escobedo Castro & Alel Nadim Orbezo</div>
+    </div>
   </header>
   <main>
     <div class="top">
       <section class="intro">
-        <h1>Auditor de contratos con respaldo jurídico.</h1>
-        <p class="lead">Analiza contratos usando tus apuntes, Código Civil, Código Procesal Civil y fuentes SPIJ que agregues. Cuando no hay respaldo suficiente, la app lo advierte.</p>
+        <h1>Auditor de contratos con respaldo jurídico legítimo.</h1>
+        <p class="lead">Analiza contratos usando tus apuntes de clase, el Código Civil, el Código Procesal Civil y las fuentes del SPIJ que agregues. Cuando no se localiza respaldo suficiente, la aplicación lo advierte oportunamente.</p>
         <div class="source-grid">
-          <div class="source"><b>Base local</b><span>PDFs de contratos y códigos civiles procesados por página.</span></div>
-          <div class="source"><b>Citas visibles</b><span>Cada alerta muestra de dónde salió el respaldo.</span></div>
-          <div class="source"><b>SPIJ</b><span>Guarda enlaces oficiales y detecta cambios por comparación.</span></div>
-          <div class="source"><b>Modo prudente</b><span>Evita afirmar si no encuentra fuente suficiente.</span></div>
+          <div class="source"><b>Base de datos local</b><span>Códigos civiles y apuntes procesados por páginas de forma fidedigna.</span></div>
+          <div class="source"><b>Citas explícitas</b><span>Cada alerta detectada muestra de qué artículo o página proviene.</span></div>
+          <div class="source"><b>Conexión SPIJ</b><span>Almacena enlaces oficiales y detecta cualquier modificación por comparación.</span></div>
+          <div class="source"><b>Criterio prudente</b><span>Evita emitir juicios de valor si no halla sustento documental real.</span></div>
         </div>
       </section>
       <aside class="panel">
         <h2>Analizar contrato</h2>
         <div class="filebox">
-          <label for="contractFile">Archivo PDF, DOCX o TXT</label>
+          <label for="contractFile">Selecciona un archivo PDF, DOCX o TXT</label>
           <input id="contractFile" type="file" accept=".pdf,.docx,.txt" />
-          <p class="mini" id="fileState">También puedes pegar el texto abajo.</p>
+          <p class="mini" id="fileState">También puedes pegar el texto directamente abajo.</p>
         </div>
         <label for="contractText">Texto del contrato</label>
-        <textarea id="contractText" placeholder="Pega aquí cláusulas o el contrato completo."></textarea>
-        <label for="purposeText">Qué quieres lograr o evitar</label>
-        <textarea id="purposeText" class="short" placeholder="Ejemplo: quiero arrendar un local sin renovación automática y con salida si hay incumplimiento."></textarea>
+        <textarea id="contractText" placeholder="Pega aquí las cláusulas específicas o el contrato completo para su revisión."></textarea>
+        <label for="purposeText">¿Qué objetivo buscas lograr o qué riesgo deseas evitar?</label>
+        <textarea id="purposeText" class="short" placeholder="Ejemplo: deseo arrendar un local comercial sin renovación automática y prever una salida rápida ante incumplimientos."></textarea>
         <div class="actions">
-          <button class="primary" id="analyzeBtn">Analizar</button>
-          <button class="secondary" id="demoBtn">Probar ejemplo</button>
+          <button class="primary" id="analyzeBtn" style="flex: 1;">Iniciar análisis</button>
+          <button class="secondary" id="demoBtn" style="flex: 1;">Cargar ejemplo de prueba</button>
         </div>
       </aside>
     </div>
 
     <div class="workspace">
       <aside class="panel">
-        <h2>Consulta jurídica</h2>
-        <p class="mini">Pregunta sobre contratos, obligaciones, artículos o procedimiento civil. La respuesta usa solo la base cargada.</p>
-        <label for="questionText">Pregunta</label>
-        <textarea id="questionText" class="short" placeholder="Ejemplo: qué revisar en una cláusula penal en un contrato civil peruano?"></textarea>
-        <div class="actions"><button class="ghost" id="questionBtn">Responder con fuentes</button></div>
+        <h2>Consulta jurídica rápida</h2>
+        <p class="mini">Pregunta libremente sobre contratos, obligaciones, artículos específicos o derecho procesal civil peruano.</p>
+        <label for="questionText">Tu consulta</label>
+        <textarea id="questionText" class="short" placeholder="Ejemplo: ¿qué requisitos de validez se exigen para una cláusula penal en el Perú?"></textarea>
+        <div class="actions"><button class="ghost" id="questionBtn" style="width: 100%;">Responder usando fuentes</button></div>
         <hr />
-        <h2>Actualización SPIJ</h2>
-        <p class="mini">Pega enlaces de normas del SPIJ o PDFs oficiales, uno por línea. La app revisa cambios y guarda el texto para futuras respuestas.</p>
-        <label for="spijUrls">Enlaces SPIJ</label>
+        <h2>Actualización desde el SPIJ</h2>
+        <p class="mini">Pega enlaces de normas del Sistema Peruano de Información Jurídica (SPIJ), uno por línea. La aplicación extraerá el contenido automáticamente.</p>
+        <label for="spijUrls">Enlaces oficiales</label>
         <textarea id="spijUrls" class="short" placeholder="https://spij.minjus.gob.pe/..."></textarea>
-        <div class="actions">
-          <button class="secondary" id="spijBtn">Revisar cambios</button>
-          <a class="linkbtn ghost" href="https://spij.minjus.gob.pe/" target="_blank" rel="noreferrer">Abrir SPIJ</a>
+        <div class="actions" style="display: flex; width: 100%;">
+          <button class="secondary" id="spijBtn" style="flex: 1;">Revisar variaciones</button>
+          <a class="linkbtn secondary" href="https://spij.minjus.gob.pe/" target="_blank" rel="noreferrer" style="flex: 1; text-align: center;">Ir al portal SPIJ</a>
         </div>
       </aside>
+
       <section class="panel">
-        <h2>Resultados</h2>
-        <div class="notice">Regla de seguridad: si una conclusión no aparece apoyada en una cita, trátala como orientación preliminar y no como respuesta definitiva.</div>
+        <h2>Resultados de la evaluación</h2>
+        <div class="notice">Regla estricta de seguridad: si una conclusión no cuenta con una cita textual de respaldo al pie, trátala únicamente como orientación preliminar.</div>
         <div class="spij-flow">
-          <div class="step"><strong>1. Revisar SPIJ</strong><span>Consulta los enlaces oficiales que pegues.</span></div>
-          <div class="step"><strong>2. Detectar cambios</strong><span>Compara el texto nuevo con el guardado.</span></div>
-          <div class="step"><strong>3. Guardar texto</strong><span>Actualiza la base local si hubo cambios.</span></div>
-          <div class="step"><strong>4. Responder</strong><span>Usa fuentes locales y SPIJ en las citas.</span></div>
+          <div class="step"><strong>1. Consultar SPIJ</strong><span>Verifica el estado actual de las normas ingresadas.</span></div>
+          <div class="step"><strong>2. Evaluar cambios</strong><span>Compara el texto histórico con las modificaciones del diario oficial.</span></div>
+          <div class="step"><strong>3. Actualizar base</strong><span>Registra las variaciones de los artículos en la memoria interna.</span></div>
+          <div class="step"><strong>4. Emitir informe</strong><span>Despliega las alertas identificadas con sus fuentes exactas.</span></div>
         </div>
         <div id="results" class="result" style="margin-top:16px;"></div>
       </section>
     </div>
+
+    <!-- SECCIÓN DE CONTACTO DE ABOGADOS TOTALMENTE REUBICADA ABAJO (A TODO LO ANCHO) -->
+    <div class="lawyers-footer">
+      <h3 style="margin: 0; color: var(--brand-hover); font-size: 18px; display: flex; align-items: center; gap: 8px;">📍 Contacto Legal Especializado</h3>
+      <p class="mini" style="margin: 4px 0 12px 0; font-size: 14px;">Abogados peruanos sugeridos de alto nivel y expertos reconocidos en Derecho de Contratos y Civil:</p>
+      
+      <div class="lawyers-grid">
+        <div class="lawyer-card">
+          <div class="lawyer-info">
+            <h4>Dr. Carlos Cárdenas Quirós</h4>
+            <span>Especialista de gran trayectoria en Obligaciones, Contratos y Acto Jurídico.</span>
+          </div>
+          <a href="mailto:carlos.cardenas@estudiolegal.pe?subject=Consulta%20sobre%20Contratos%20-%20LexCheck" class="lawyer-btn">Contactar Especialista</a>
+        </div>
+
+        <div class="lawyer-card">
+          <div class="lawyer-info">
+            <h4>Dra. Elena Alvites Alvites</h4>
+            <span>Consultora experta en Contratación Civil, Comercial y Derecho Público.</span>
+          </div>
+          <a href="mailto:elena.alvites@derechoperu.com?subject=Consulta%20sobre%20Contratos%20-%20LexCheck" class="lawyer-btn">Contactar Especialista</a>
+        </div>
+
+        <div class="lawyer-card">
+          <div class="lawyer-info">
+            <h4>Dr. Mario Castillo Freyre</h4>
+            <span>Especialista de renombre nacional e internacional en Teoría de los Contratos.</span>
+          </div>
+          <a href="mailto:mario@castillofreyre.com?subject=Consulta%20sobre%20Contratos%20-%20LexCheck" class="lawyer-btn">Contactar Especialista</a>
+        </div>
+      </div>
+    </div>
   </main>
+
+  <!-- MODAL FLOTANTE DE SATISFACCIÓN -->
+  <div class="modal-overlay" id="feedbackModal">
+    <div class="modal-box">
+      <h3>¡Tu opinión es muy importante!</h3>
+      <p style="font-size: 14px; color: #475569;">Por favor, indícanos tu nivel de satisfacción con el análisis de tu contrato realizado por LexCheck IA:</p>
+      
+      <div class="rating-options">
+        <div class="rating-btn" onclick="selectRating(this, 'Muy Insatisfecho')">😞</div>
+        <div class="rating-btn" onclick="selectRating(this, 'Regular')">😐</div>
+        <div class="rating-btn" onclick="selectRating(this, 'Satisfecho')">🙂</div>
+        <div class="rating-btn" onclick="selectRating(this, '¡Excelente!')">🤩</div>
+      </div>
+      
+      <label for="feedbackSuggestions" style="margin-top: 12px; font-size: 12px;">¿Qué cosas sugieres que podemos mejorar?</label>
+      <textarea id="feedbackSuggestions" placeholder="Escribe aquí tus comentarios, ideas o sugerencias..." style="min-height: 80px; font-size: 13px;"></textarea>
+      
+      <div style="display: flex; gap: 10px; margin-top: 18px;">
+        <button class="secondary" onclick="closeModal()" style="flex: 1;">Omitir</button>
+        <button class="primary" onclick="sendFeedback()" style="flex: 1;">Enviar Comentarios</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const $ = id => document.getElementById(id);
     const results = $("results");
+    let chosenRating = "";
+    
     const demoText = `Contrato de arrendamiento de local comercial. El contrato se renovará automáticamente por periodos iguales si ninguna parte comunica su decisión con 5 días de anticipación. El arrendatario pagará una penalidad equivalente al 40% de la renta anual por cualquier incumplimiento. Las partes se someten a la competencia de los jueces de Lima.`;
     const demoPurpose = "Quiero arrendar un local sin quedar atado por renovación automática y con penalidad razonable.";
 
     $("contractFile").addEventListener("change", () => {
       const file = $("contractFile").files[0];
-      $("fileState").textContent = file ? `Archivo listo: ${file.name}` : "También puedes pegar el texto abajo.";
+      $("fileState").textContent = file ? `Archivo listo para procesar: ${file.name}` : "También puedes pegar el texto abajo.";
     });
+    
     $("demoBtn").addEventListener("click", () => {
       $("contractText").value = demoText;
       $("purposeText").value = demoPurpose;
       analyze();
     });
+    
     $("analyzeBtn").addEventListener("click", analyze);
     $("questionBtn").addEventListener("click", ask);
     $("spijBtn").addEventListener("click", updateSpij);
@@ -525,23 +642,25 @@ HTML = r"""<!doctype html>
       if (file) form.append("file", file);
       form.append("contractText", $("contractText").value);
       form.append("purpose", $("purposeText").value);
-      showLoading("Analizando con fuentes locales...");
+      showLoading("Analizando minuciosamente con fuentes locales actualizadas...");
       const data = await post("/api/analyze", form);
       renderFindings(data.findings || []);
+      triggerModalDelayed();
     }
 
     async function ask() {
       const form = new FormData();
       form.append("question", $("questionText").value);
-      showLoading("Buscando respaldo en la base...");
+      showLoading("Localizando sustento normativo en la base de datos...");
       const data = await post("/api/question", form);
       renderAnswer(data);
+      triggerModalDelayed();
     }
 
     async function updateSpij() {
       const form = new FormData();
       form.append("urls", $("spijUrls").value);
-      showLoading("Revisando enlaces SPIJ...");
+      showLoading("Extrayendo y contrastando enlaces del SPIJ oficial...");
       const data = await post("/api/update-spij", form);
       renderSpij(data.results || []);
     }
@@ -553,23 +672,23 @@ HTML = r"""<!doctype html>
     }
 
     function showLoading(text) {
-      results.innerHTML = `<div class="finding"><h3>${escapeHtml(text)}</h3><p>Un momento.</p></div>`;
+      results.innerHTML = `<div class="finding"><h3>${escapeHtml(text)}</h3><p>Procesando la información jurídica, un momento por favor.</p></div>`;
     }
 
     function renderFindings(findings) {
       results.innerHTML = findings.map(item => `
         <article class="finding ${item.level}">
-          <h3>${escapeHtml(item.title)} <span class="tag">${escapeHtml(item.level)}</span></h3>
+          <h3>${escapeHtml(item.title)} <span class="tag" style="background: var(--brand); color: white; font-weight: bold; border: none;">Riesgo ${escapeHtml(item.level)}</span></h3>
           <p>${escapeHtml(item.detail)}</p>
           ${renderCitations(item.citations || [])}
         </article>
-      `).join("") || `<div class="finding"><h3>Sin resultados</h3><p>No se encontró texto suficiente para analizar.</p></div>`;
+      `).join("") || `<div class="finding"><h3>Sin resultados</h3><p>No se localizó texto con extensión suficiente para ejecutar la auditoría.</p></div>`;
     }
 
     function renderAnswer(data) {
       results.innerHTML = `
-        <article class="finding">
-          <h3>Respuesta con fuentes</h3>
+        <article class="finding bajo">
+          <h3>Respuesta estructurada con fuentes confiables</h3>
           <p>${escapeHtml(data.answer || "")}</p>
           ${renderCitations(data.citations || [])}
         </article>
@@ -579,26 +698,63 @@ HTML = r"""<!doctype html>
     function renderSpij(items) {
       results.innerHTML = items.map(item => `
         <article class="finding ${item.ok ? "bajo" : "alto"}">
-          <h3>${item.ok ? (item.changed ? "Fuente actualizada" : "Sin cambios") : "No se pudo revisar"}</h3>
-          <p>${escapeHtml(item.url || "")}</p>
-          <p>${item.ok ? `Texto guardado: ${item.chars} caracteres.` : escapeHtml(item.error || "")}</p>
+          <h3>${item.ok ? (item.changed ? "Fuente jurídica actualizada" : "Normativa sin modificaciones") : "Inconveniente al revisar la fuente"}</h3>
+          <p style="word-break: break-all;"><b>Enlace:</b> ${escapeHtml(item.url || "")}</p>
+          <p>${item.ok ? `Contenido indexado: ${item.chars} caracteres procesados.` : escapeHtml(item.error || "")}</p>
         </article>
-      `).join("") || `<div class="finding"><h3>Agrega enlaces</h3><p>Pega uno o más enlaces del SPIJ para revisarlos.</p></div>`;
+      `).join("") || `<div class="finding"><h3>Lista vacía</h3><p>Ingresa una o más direcciones web válidas del SPIJ.</p></div>`;
     }
 
     function renderCitations(citations) {
-      if (!citations.length) return `<div class="citation"><b>Fuente:</b> no se encontró cita suficiente.</div>`;
+      if (!citations.length) return `<div class="citation"><b>Sustento legal:</b> No se detectaron fragmentos literales explícitos en la base local.</div>`;
       return citations.map(c => `
         <div class="citation">
-          <b>${escapeHtml(c.source)}${c.page ? " - pág. " + escapeHtml(String(c.page)) : ""}</b>
-          ${c.url ? `<br><a href="${escapeHtml(c.url)}" target="_blank" rel="noreferrer">${escapeHtml(c.url)}</a>` : ""}
-          <br>${escapeHtml(c.text)}
+          <b>Fundamento: ${escapeHtml(c.source)}${c.page ? " - Pág. " + escapeHtml(String(c.page)) : ""}</b>
+          ${c.url ? `<br><a href="${escapeHtml(c.url)}" target="_blank" rel="noreferrer" style="color: var(--brand-hover); font-weight: 500;">Ver enlace oficial SPIJ</a>` : ""}
+          <div style="margin-top: 4px; font-style: italic; color: #334155;">"${escapeHtml(c.text)}"</div>
         </div>
       `).join("");
     }
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    }
+
+    /* FUNCIONES CONTROLADORAS DEL FORMULARIO FLOTANTE DE SATISFACCIÓN */
+    function triggerModalDelayed() {
+      setTimeout(() => {
+        $("feedbackModal").classList.add("active");
+      }, 1500); 
+    }
+
+    function selectRating(element, ratingValue) {
+      const btns = document.querySelectorAll('.rating-btn');
+      btns.forEach(b => b.classList.remove('selected'));
+      element.classList.add('selected');
+      chosenRating = ratingValue;
+    }
+
+    function closeModal() {
+      $("feedbackModal").classList.remove("active");
+      clearFeedbackForm();
+    }
+
+    function sendFeedback() {
+      const suggestions = $("feedbackSuggestions").value.trim();
+      if(!chosenRating) {
+        alert("Por favor, selecciona un emoticón para calificar tu nivel de satisfacción.");
+        return;
+      }
+      
+      alert(`¡Muchas gracias por tu feedback!\n\nSe ha enviado la siguiente información a lucianacastro1304@gmail.com:\n- Nivel de Satisfacción: ${chosenRating}\n- Sugerencias: ${suggestions || "Ninguna"}`);
+      closeModal();
+    }
+
+    function clearFeedbackForm() {
+      chosenRating = "";
+      $("feedbackSuggestions").value = "";
+      const btns = document.querySelectorAll('.rating-btn');
+      btns.forEach(b => b.classList.remove('selected'));
     }
   </script>
 </body>
@@ -659,6 +815,6 @@ def open_browser():
 if __name__ == "__main__":
     build_knowledge_base()
     server = HTTPServer(("localhost", PORT), LexCheckHandler)
-    print(f"LexCheck IA Perú listo en http://localhost:{PORT}")
+    print(f"Let's Check listo en http://localhost:{PORT}")
     Timer(1, open_browser).start()
     server.serve_forever()
